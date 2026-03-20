@@ -1,0 +1,41 @@
+THIS IS PLAGARISM DETECTOR PROJECT
+
+DESCRIPTION:-
+
+
+MODULES:- ORC(OPTICAL CHARACTER RECOGNITION)  , SPELLING_CHECK , AI_SIMILARITY ETC
+
+
+1 ORC:
+
+  DESCRIPTION:-  IT IS USED TO FETCH IMAGE  AND GET IT'S TEXT IN THE FORM OF LIST 
+
+  PROCEDURE:-
+
+   U NEED TO SAVE THE IMAGE IN YOUR GMAIL MAKE IT PUBLIC AND SUBMIT THE IMAGE_URL.
+   INSTALL PYTHON 
+  
+   U NEED TO HAVE AN ACTIVE AWS ACCOUNT (SEE YOU TUBE) AND ACTIVATE TEXTRACT FEATURE THERE
+   U NEED TO CREATE AN ACCESS KEY WITH ADMIN ROLE AND SAVE IT'S CREDENTIALS IN .env FILE
+
+  DEPENDENCIES OF ORC:-
+
+   pip install gdown
+   pip install boto3
+   pip install python-dotenv
+   pip install pillow
+
+  FORMAT OF .env FILE:-
+
+   AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_KEY'
+   AWS_ACCESS_KEY_ID = "AWS_ACCESS_KEY_ID"
+   AWS_DEFAULT_REGION = "us-east-1"
+
+  EXAMPLE CODE:-
+
+   url = 'your image url'
+   image_path = get_img(url)
+   show_image(image_path)
+   textract_client = connect()
+   extracted_lines = textractor(image_path , textract_client)
+
