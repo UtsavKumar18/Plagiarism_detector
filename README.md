@@ -19,13 +19,11 @@ MODULES:- ORC(OPTICAL CHARACTER RECOGNITION)  , SPELLING_CHECK , AI_SIMILARITY E
    U NEED TO CREATE AN ACCESS KEY WITH ADMIN ROLE AND SAVE IT'S CREDENTIALS IN .env FILE
 
   DEPENDENCIES OF ORC:-
-
-   pip install gdown
-   pip install boto3
-   pip install python-dotenv
-   pip install pillow
-
+  
+   pip intall -r requirements.txt
+   
   FORMAT OF .env FILE:-
+  
 
    AWS_SECRET_ACCESS_KEY = 'AWS_SECRET_KEY'
    AWS_ACCESS_KEY_ID = "AWS_ACCESS_KEY_ID"
