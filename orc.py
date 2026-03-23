@@ -54,6 +54,10 @@ def get_img(url:str):
   output: Path instance of image_path
 
   """
+  start = url.find('/d/') +3
+  end = url.find('/view?')
+  file_id = url[start:end]
+  url = f'https://drive.google.com/uc?id={file_id}'
 
   path = Path(os.getcwd())
   img_path = path / 'img'
@@ -73,10 +77,10 @@ def textractor(image_path , textract_client):
     """
     extracts text from image
 
-    input: image_path:pathlib.Path 
+    input: image_path:pathlib.Path
            textract_client -> it is the output of connect() function
-           
-    output: list of extracted lines 
+
+    output: list of extracted lines
 
 
     """
