@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocCheck — Smart Document Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;600&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f8f9fb;
+    --surface2: #f0f2f6;
+    --border: #e0e4ed;
+    --border2: #c8cfe0;
+    --text: #1a1e2e;
+    --muted: #6b7280;
+    --accent: #4a6ef0;
+    --accent2: #3558d6;
+    --error: #e02020;
+    --error-bg: rgba(224,32,32,0.08);
+    --error-border: rgba(224,32,32,0.3);
+    --success: #16a34a;
+    --warning: #d97706;
+    --stat-bg: #f0f2f8;
+    --radius: 10px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .logo {
+    font-family: 'Lora', serif;
+    font-weight: 600;
+    font-size: 1.35rem;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .logo span { color: var(--accent); }
+  .header-actions { display: flex; gap: 10px; align-items: center; }
+  .badge {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(108,143,255,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(108,143,255,0.25);
+  }
+
+  /* ── Main layout ── */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    grid-template-rows: 1fr;
+    flex: 1;
+    overflow: hidden;
+    gap: 0;
+  }
+
+  /* ── Editor column ── */
+  .editor-col {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    flex-wrap: wrap;
+  }
+  .toolbar-sep {
+    width: 1px;
+    height: 20px;
+    background: var(--border2);
+    margin: 0 4px;
+  }
+  .tb-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .tb-btn:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--border2);
+  }
+  .tb-btn.active {
+    background: rgba(108,143,255,0.15);
+    color: var(--accent);
+    border-color: rgba(108,143,255,0.3);
+  }
+  .tb-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+  .check-btn {
+    margin-left: auto;
+    background: var(--accent2);
+    color: #fff;
+    border: none;
+    padding: 7px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Sans', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .check-btn:hover { background: #5a7ef8; transform: translateY(-1px); }
+  .check-btn:active { transform: translateY(0); }
+
+  /* ── Editor wrapper with overlay ── */
+  .editor-wrapper {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+  }
+  .editor-scroll {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+  }
+  .editor-inner {
+    position: relative;
+    min-height: 100%;
+    padding: 40px 60px;
+  }
+
+  /* The highlight overlay (behind text) */
+  #highlight-layer {
+    
+    top: 0; left: 0;
+    width: 100%;
+    pointer-events: none;
+    white-space: pre-wrap;
+    word-break: break-word;
+    padding: 40px 60px;
+    font-family: 'Lora', serif;
+    font-size: 17px;
+    line-height: 1.9;
+    color: black;
+    overflow: hidden;
+  }
+
+  .misspelled-mark {
+    background: var(--error-bg);
+    border-bottom: 2px solid var(--error);
+    border-radius: 2px;
+    pointer-events: auto;
+    cursor: pointer;
+    position: relative;
+  }
+
+  /* The textarea */
+  #editor {
+    position: relative;
+    width: 100%;
+    min-height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    color: var(--text);
+    font-family: 'Lora', serif;
+    font-size: 17px;
+    line-height: 1.9;
+    caret-color: var(--accent);
+    padding: 0px 0px 0px 60px;
+    z-index: 1;
+    -webkit-text-fill-color: var(--text);
+    /* Ensure textarea spans full height */
+    display: block;
+    overflow: hidden;
+  }
+  #editor::placeholder { color: var(--muted); font-style: italic; }
+
+  /* ── Suggestions tooltip ── */
+  #suggestion-box {
+    position: fixed;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 8px;
+    z-index: 1000;
+    min-width: 180px;
+    display: none;
+  }
+  #suggestion-box.visible { display: block; }
+  .suggest-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 6px 6px;
+  }
+  .suggest-item {
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    transition: background 0.1s;
+  }
+  .suggest-item:hover { background: rgba(108,143,255,0.15); color: var(--accent); }
+  .suggest-divider { height: 1px; background: var(--border); margin: 4px 0; }
+  .suggest-ignore {
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    transition: background 0.1s;
+  }
+  .suggest-ignore:hover { background: var(--surface); color: var(--text); }
+
+  /* ── Status bar ── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .status-item { display: flex; align-items: center; gap: 5px; }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+  .status-dot.has-errors { background: var(--error); }
+  #error-count { color: var(--error); font-weight: 600; }
+  #error-count.clear { color: var(--success); }
+
+  /* ── Right panel ── */
+  .panel {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--surface);
+    padding: 0;
+  }
+
+  .panel-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-card {
+    background: var(--stat-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .stat-val {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+  }
+  .stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  /* Errors list */
+  .error-list { display: flex; flex-direction: column; gap: 6px; }
+  .error-item {
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .error-word {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--error);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .error-sugg {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .sugg-chip {
+    display: inline-block;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--accent);
+    cursor: pointer;
+    margin: 2px 2px 0 0;
+    transition: background 0.1s;
+  }
+  .sugg-chip:hover { background: rgba(108,143,255,0.2); }
+  .no-errors {
+    text-align: center;
+    color: var(--success);
+    font-size: 13px;
+    padding: 12px;
+  }
+  .no-errors-icon { font-size: 24px; display: block; margin-bottom: 4px; }
+
+  /* Spinner */
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    display: none;
+  }
+  .checking .spinner { display: block; }
+  .checking .btn-text { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* Empty panel state */
+  .panel-empty {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 20px 0;
+    font-style: italic;
+  }
+
+  @media (max-width: 800px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+    .editor-col { border-right: none; border-bottom: 1px solid var(--border); }
+    .panel { max-height: 40vh; }
+    .editor-inner, #editor, #highlight-layer { padding: 24px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Doc<span>Check</span></div>
+  <div class="header-actions">
+    <span class="badge">Smart Editor</span>
+  </div>
+</header>
+
+<main>
+  <!-- Left: editor -->
+  <div class="editor-col">
+    <div class="toolbar">
+      <button class="tb-btn" onclick="insertText('**', '**')" title="Bold">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 4h8a4 4 0 010 8H6z"/><path d="M6 12h9a4 4 0 010 8H6z"/></svg>
+        Bold
+      </button>
+      <button class="tb-btn" onclick="insertText('_', '_')" title="Italic">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="19" y1="4" x2="10" y2="4"/><line x1="14" y1="20" x2="5" y2="20"/><line x1="15" y1="4" x2="9" y2="20"/></svg>
+        Italic
+      </button>
+      <div class="toolbar-sep"></div>
+      <button class="tb-btn" onclick="clearEditor()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Clear
+      </button>
+      <button class="tb-btn" onclick="copyText()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Copy
+      </button>
+      <button class="tb-btn" onclick="downloadText()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download
+      </button>
+      <button class="check-btn" id="check-btn" onclick="runCheck()">
+        <div class="spinner" id="spinner"></div>
+        <span class="btn-text">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:middle"><path d="M20 6L9 17l-5-5"/></svg>
+          Check Spelling
+        </span>
+      </button>
+    </div>
+
+    <div class="editor-wrapper">
+      <div class="editor-scroll" id="editor-scroll">
+        <div class="editor-inner" id="editor-inner">
+          
+          <textarea id="editor"
+            placeholder="Start typing your document here... Click 'Check Spelling' to highlight mistakes in red."
+            spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
+            oninput="onEditorInput()"
+          >{{ text }}</textarea>
+          <!-- Highlight layer behind textarea -->
+          <div id="highlight-layer" aria-hidden="true"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="error-count" class="clear">No errors</span>
+      </div>
+      <div class="status-item"><span id="sb-words">0 words</span></div>
+      <div class="status-item"><span id="sb-chars">0 chars</span></div>
+      <div class="status-item"><span id="sb-read">~0 min read</span></div>
+    </div>
+  </div>
+
+  <!-- Right: panel -->
+  <div class="panel" id="panel">
+    <!-- Stats -->
+    <div class="panel-section">
+      <div class="panel-title">Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-card"><div class="stat-val" id="st-chars">0</div><div class="stat-lbl">AI_similarity</div></div>
+        <div class="stat-card"><div class="stat-val" id="st-words">0</div><div class="stat-lbl">Words</div></div>
+        
+        <div class="stat-card"><div class="stat-val" id="st-sents">0</div><div class="stat-lbl">Sentences</div></div>
+        <div class="stat-card"><div class="stat-val" id="st-paras">0</div><div class="stat-lbl">Paragraphs</div></div>
+      </div>
+    </div>
+
+    <!-- Errors -->
+    <div class="panel-section" id="errors-section">
+      <div class="panel-title">Spelling Errors <span id="err-badge" style="color:var(--muted)"></span></div>
+      <div class="error-list" id="error-list">
+        <div class="panel-empty">Run a check to see spelling errors</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<!-- Suggestion box -->
+<div id="suggestion-box">
+  <div class="suggest-title">Suggestions</div>
+  <div id="suggest-list"></div>
+  <div class="suggest-divider"></div>
+  <div class="suggest-ignore" onclick="hideSuggestions()">Dismiss</div>
+</div>
+
+<script>
+let currentErrors = [];
+let ignoredWords = new Set();
+let currentWordInfo = null;
+let checkTimeout = null;
+
+const editor = document.getElementById('editor');
+const highlightLayer = document.getElementById('highlight-layer');
+const suggestionBox = document.getElementById('suggestion-box');
+
+// Sync textarea and highlight layer sizes
+function syncSizes() {
+  highlightLayer.style.width = editor.offsetWidth + 'px';
+}
+
+// Escape HTML for the highlight layer
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+// Build highlighted HTML from errors
+function buildHighlight(text, errors) {
+  if (!errors.length) return escapeHtml(text);
+
+  // Flatten all positions into a single sorted list of spans
+  const spans = [];
+  for (const err of errors) {
+    if (ignoredWords.has(err.word_lower)) continue;
+    for (const pos of err.positions) {
+      spans.push({ start: pos.start, end: pos.end, word: err.word, word_lower: err.word_lower });
+    }
+  }
+  spans.sort((a, b) => a.start - b.start);
+
+  let html = '';
+  let lastIdx = 0;
+  for (const span of spans) {
+    if (span.start < lastIdx) continue;
+    html += escapeHtml(text.slice(lastIdx, span.start));
+    const wordHtml = escapeHtml(text.slice(span.start, span.end));
+    html += `<mark class="misspelled-mark" data-word="${escapeHtml(span.word)}" data-word-lower="${span.word_lower}" data-start="${span.start}" data-end="${span.end}">${wordHtml}</mark>`;
+    lastIdx = span.end;
+  }
+  html += escapeHtml(text.slice(lastIdx));
+  return html;
+}
+
+function renderHighlights(text) {
+
+  highlightLayer.innerHTML = buildHighlight(text, currentErrors);
+
+  // Attach click handlers to marks
+  highlightLayer.querySelectorAll('.misspelled-mark').forEach(mark => {
+    mark.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wordLower = mark.dataset.wordLower;
+      const errObj = currentErrors.find(er => er.word_lower === wordLower);
+      if (errObj) showSuggestions(e, errObj);
+    });
+  });
+}
+
+async function runCheck() {
+  const text = editor.value.trim();
+  console.log('Running check on text:', text);
+  const btn = document.getElementById('check-btn');
+  btn.classList.add('checking');
+
+  try {
+    const resp = await fetch('/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await resp.json();
+    currentErrors = data.errors.filter(e => !ignoredWords.has(e.word.toLowerCase()));
+    updateStats(data.stats);
+    renderHighlights(data.text);
+    renderErrorList(currentErrors, data.errors.length);
+    updateStatusBar(data.stats, currentErrors.length);
+  } catch(err) {
+    console.error(err);
+  } finally {
+    btn.classList.remove('checking');
+  }
+}
+
+function updateStats(stats) {
+  document.getElementById('st-words').textContent = stats.word_count;
+  document.getElementById('st-chars').textContent = stats.ai_similarity.toFixed(2) + '%';
+  document.getElementById('st-sents').textContent = stats.sentence_count;
+  document.getElementById('st-paras').textContent = stats.paragraph_count;
+}
+
+function renderErrorList(errors, total) {
+  const list = document.getElementById('error-list');
+  const badge = document.getElementById('err-badge');
+  const dot = document.getElementById('status-dot');
+  const errCount = document.getElementById('error-count');
+
+  if (errors.length === 0) {
+    badge.textContent = '';
+    dot.classList.remove('has-errors');
+    errCount.classList.add('clear');
+    errCount.textContent = 'No errors';
+    list.innerHTML = '<div class="no-errors"><span class="no-errors-icon">✓</span>All clear!</div>';
+    return;
+  }
+
+  badge.textContent = `(${errors.length})`;
+  dot.classList.add('has-errors');
+  errCount.classList.remove('clear');
+  errCount.textContent = `${errors.length} error${errors.length !== 1 ? 's' : ''}`;
+
+  // Already deduplicated by backend (one entry per unique word)
+  list.innerHTML = errors.map(err => `
+    <div class="error-item">
+      <div class="error-word">${err.word}</div>
+      <div class="error-sugg">
+        ${err.suggestions.length
+          ? err.suggestions.map(s => `<span class="sugg-chip">${s}</span>`).join('')
+          : '<span style="color:var(--muted);font-size:11px">No suggestions</span>'}
+        <span class="sugg-chip" style="color:var(--muted)">ignore</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateStatusBar(stats, errCount) {
+  document.getElementById('sb-words').textContent = stats.word_count + ' words';
+  document.getElementById('sb-chars').textContent = stats.char_count + ' chars';
+  document.getElementById('sb-read').textContent = '~' + stats.reading_time + ' min read';
+}
+
+function showSuggestions(e, errObj) {
+  currentWordInfo = errObj;
+  const list = document.getElementById('suggest-list');
+  list.innerHTML = '';
+  if (errObj.suggestions.length === 0) {
+    list.innerHTML = '<div class="suggest-item" style="color:var(--muted)">No suggestions</div>';
+  } else {
+    errObj.suggestions.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'suggest-item';
+      div.textContent = s;
+      div.onclick = () => { replaceAll(errObj.word, s); hideSuggestions(); };
+      list.appendChild(div);
+    });
+  }
+  // Position near click
+  const box = suggestionBox;
+  box.classList.add('visible');
+  const bw = box.offsetWidth || 190;
+  const bh = box.offsetHeight || 150;
+  let x = e.clientX, y = e.clientY + 12;
+  if (x + bw > window.innerWidth - 10) x = window.innerWidth - bw - 10;
+  if (y + bh > window.innerHeight - 10) y = e.clientY - bh - 6;
+  box.style.left = x + 'px';
+  box.style.top = y + 'px';
+}
+
+function hideSuggestions() {
+  suggestionBox.classList.remove('visible');
+  currentWordInfo = null;
+}
+
+function replaceAll(original, replacement) {
+  const text = editor.value;
+  const regex = new RegExp('\\b' + original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi');
+  editor.value = text.replace(regex, replacement);
+  currentErrors = currentErrors.filter(e => e.word_lower !== original.toLowerCase());
+  runCheck();
+  hideSuggestions();
+}
+
+function ignoreWord(word) {
+  ignoredWords.add(word.toLowerCase());
+  currentErrors = currentErrors.filter(e => e.word_lower !== word.toLowerCase());
+  renderHighlights();
+  renderErrorList(currentErrors, currentErrors.length);
+}
+
+function onEditorInput() {
+  // Auto-resize textarea
+  //editor.style.height = 'auto';
+  //editor.style.height = Math.max(editor.scrollHeight, 400) + 'px';
+
+  // Live word/char count in status bar
+  const text = editor.value;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  // document.getElementById('sb-words').textContent = words + ' words';
+  // document.getElementById('sb-chars').textContent = text.length + ' chars';
+  // document.getElementById('st-words').textContent = words;
+  // document.getElementById('st-chars').textContent = text.length;
+
+  // Clear highlights on edit (re-check needed)
+  currentErrors = [];
+  highlightLayer.innerHTML = '';
+  document.getElementById('status-dot').classList.remove('has-errors');
+  document.getElementById('error-count').textContent = 'Edit detected — recheck';
+  document.getElementById('error-count').classList.add('clear');
+
+  // Auto-check after pause
+  //clearTimeout(checkTimeout);
+  //checkTimeout = setTimeout(runCheck, 1800);
+}
+
+function insertText(before, after) {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  const sel = editor.value.slice(start, end);
+  editor.value = editor.value.slice(0, start) + before + sel + after + editor.value.slice(end);
+  editor.focus();
+  editor.setSelectionRange(start + before.length, end + before.length);
+}
+
+function clearEditor() {
+  if (editor.value && !confirm('Clear the editor?')) return;
+  editor.value = '';
+  editor.style.height = 'auto';
+  currentErrors = [];
+  highlightLayer.innerHTML = '';
+  document.getElementById('error-list').innerHTML = '<div class="panel-empty">Run a check to see spelling errors</div>';
+  document.getElementById('status-dot').classList.remove('has-errors');
+  document.getElementById('error-count').textContent = 'No errors';
+  document.getElementById('error-count').classList.add('clear');
+  ['st-words','st-chars','st-sents','st-paras'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('sb-words').textContent = '0 words';
+  document.getElementById('sb-chars').textContent = '0 chars';
+  document.getElementById('sb-read').textContent = '~0 min read';
+  document.getElementById('err-badge').textContent = '';
+}
+
+function copyText() {
+  navigator.clipboard.writeText(editor.value).then(() => {
+    const btn = [...document.querySelectorAll('.tb-btn')].find(b => b.textContent.includes('Copy'));
+    if (btn) { const orig = btn.innerHTML; btn.textContent = '✓ Copied!'; setTimeout(() => btn.innerHTML = orig, 1200); }
+  });
+}
+
+function downloadText() {
+  const blob = new Blob([editor.value], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'document.txt';
+  a.click();
+}
+
+// Close suggestion box on outside click
+document.addEventListener('click', (e) => {
+  if (!suggestionBox.contains(e.target)) hideSuggestions();
+});
+
+// Handle scroll sync between textarea and highlight layer
+document.getElementById('editor-scroll').addEventListener('scroll', function() {
+  // The highlight layer is absolute positioned so it scrolls with the container
+});
+
+window.addEventListener('resize', syncSizes);
+syncSizes();
+
+// Init textarea height
+//editor.style.height = '500px';
+</script>
+</body>
+</html>

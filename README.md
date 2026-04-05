@@ -21,6 +21,8 @@ MODULES:- ORC(OPTICAL CHARACTER RECOGNITION)  , SPELLING_CHECK , AI_SIMILARITY E
   DEPENDENCIES OF ORC:-
   
    pip intall -r requirements.txt
+   pip install indexer
+   
    
   FORMAT OF .env FILE:-
   

@@ -2,4 +2,6 @@
  boto3
  python-dotenv
  pillow
- spellchecker
+ pyspellchecker
+ flask
+ 
